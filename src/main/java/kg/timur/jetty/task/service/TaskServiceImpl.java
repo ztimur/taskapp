@@ -2,9 +2,15 @@ package kg.timur.jetty.task.service;
 
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -25,9 +31,6 @@ import kg.timur.jetty.task.model.GenericResponse;
 import kg.timur.jetty.task.model.Task;
 
 
-/**
- * Created by tzhamakeev on 11/25/16.
- */
 @Path( "/rest/tasks" )
 @Consumes( MediaType.APPLICATION_JSON )
 @Produces( MediaType.APPLICATION_JSON )
@@ -65,7 +68,12 @@ public class TaskServiceImpl implements TaskService
 
         while ( !Thread.interrupted() && notConnected )
         {
-            //            updateConfigs();
+            if ( !updateConfigs() )
+            {
+                TimeUnit.SECONDS.sleep( 1 );
+                continue;
+            }
+
             try
             {
                 cassandraClient.connect( CASS_CONFIG_POINTS, CASS_PORT );
@@ -87,6 +95,40 @@ public class TaskServiceImpl implements TaskService
 
             cassandraClient.createSchema( script );
         }
+    }
+
+
+    private boolean updateConfigs()
+    {
+        Supplier<Stream<String>> streamSupplier = () ->
+        {
+            try
+            {
+                return Files.lines( Paths.get( "/etc/cassandra/cassandra.yaml" ) );
+            }
+            catch ( IOException e )
+            {
+                return Stream.empty();
+            }
+        };
+
+        Optional<String> cassPortOpt =
+                streamSupplier.get().filter( l -> l.contains( "native_transport_port" ) ).findFirst();
+
+        if ( cassPortOpt.isPresent() )
+        {
+            CASS_PORT = Integer.parseInt( cassPortOpt.get().split( ":" )[1].trim() );
+        }
+
+
+        Optional<String> cassIpsOpt = streamSupplier.get().filter( l -> l.contains( "seeds:" ) ).findFirst();
+
+        if ( cassIpsOpt.isPresent() )
+        {
+            CASS_CONFIG_POINTS = cassIpsOpt.get().split( ":" )[1].trim().replace( "\"", "" ).split( "," );
+        }
+
+        return !Arrays.equals( CASS_CONFIG_POINTS, new String[] { "127.0.0.1" } );
     }
 
 
