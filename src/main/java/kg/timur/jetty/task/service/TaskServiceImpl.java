@@ -2,9 +2,14 @@ package kg.timur.jetty.task.service;
 
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -65,7 +70,7 @@ public class TaskServiceImpl implements TaskService
 
         while ( !Thread.interrupted() && notConnected )
         {
-            //            updateConfigs();
+            updateConfigs();
             try
             {
                 cassandraClient.connect( CASS_CONFIG_POINTS, CASS_PORT );
@@ -86,6 +91,39 @@ public class TaskServiceImpl implements TaskService
             LOG.info( "tasks.cql: {}", script );
 
             cassandraClient.createSchema( script );
+        }
+    }
+
+
+    private void updateConfigs()
+    {
+
+        Supplier<Stream<String>> streamSupplier = () ->
+        {
+            try
+            {
+                return Files.lines( Paths.get( "/etc/cassandra/cassandra.yaml" ) );
+            }
+            catch ( IOException e )
+            {
+                return Stream.empty();
+            }
+        };
+
+        Optional<String> cassPortOpt =
+                streamSupplier.get().filter( l -> l.contains( "native_transport_port" ) ).findFirst();
+
+        if ( cassPortOpt.isPresent() )
+        {
+            CASS_PORT = Integer.parseInt( cassPortOpt.get().split( ":" )[1].trim() );
+        }
+
+
+        Optional<String> cassIpsOpt = streamSupplier.get().filter( l -> l.contains( "seeds:" ) ).findFirst();
+
+        if ( cassIpsOpt.isPresent() )
+        {
+            CASS_CONFIG_POINTS = cassIpsOpt.get().split( ":" )[1].trim().replace( "\"", "" ).split( "," );
         }
     }
 
