@@ -2,9 +2,14 @@ package kg.timur.jetty.task.service;
 
 
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -66,13 +71,15 @@ public class TaskServiceImpl implements TaskService
 
         boolean notConnected = true;
 
+        updateConfigs2();
+
         while ( !Thread.interrupted() && notConnected )
         {
-            if ( !updateConfigs() )
-            {
-                TimeUnit.SECONDS.sleep( 1 );
-                continue;
-            }
+            //            if ( !updateConfigs() )
+            //            {
+            //                TimeUnit.SECONDS.sleep( 1 );
+            //                continue;
+            //            }
 
             try
             {
@@ -94,6 +101,22 @@ public class TaskServiceImpl implements TaskService
             LOG.info( "tasks.cql: {}", script );
 
             cassandraClient.createSchema( script );
+        }
+    }
+
+
+    private void updateConfigs2() throws SocketException
+    {
+        NetworkInterface networkInterface = NetworkInterface.getByName( "eth0" );
+
+        for ( InetAddress inetAddress : Collections.list( networkInterface.getInetAddresses() ) )
+        {
+            if ( inetAddress instanceof Inet4Address && !inetAddress.isLoopbackAddress() )
+            {
+                CASS_CONFIG_POINTS = new String[] { inetAddress.getHostAddress() };
+
+                return;
+            }
         }
     }
 
