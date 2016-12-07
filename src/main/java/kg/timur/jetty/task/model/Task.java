@@ -8,13 +8,20 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
+import com.datastax.driver.mapping.annotations.Table;
 
-/**
- * Created by tzhamakeev on 11/25/16.
- */
+import static kg.timur.jetty.task.model.Task.KEYSPACE;
+import static kg.timur.jetty.task.model.Task.TABLE;
+
+
 @XmlRootElement( name = "task" )
+@Table( keyspace = KEYSPACE, name = TABLE )
 public class Task
 {
+    public static final String KEYSPACE = "taskdemo";
+    public static final String TABLE = "tasks";
+    public static final String ID = "id";
+
     @JsonProperty( value = "id" )
     private String id;
     @JsonProperty( value = "task" )
@@ -23,6 +30,11 @@ public class Task
     private Integer status;
     @JsonProperty( value = "createdOn" )
     private Date createdOn;
+
+
+    public Task()
+    {
+    }
 
 
     @JsonCreator
