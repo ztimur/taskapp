@@ -86,7 +86,7 @@ public class CassandraClient
 
         ResultSet results = session.execute( statement );
 
-        LOG.debug( "Result set was applied: {}. Session state: {}", results.wasApplied(), session.getState() );
+        LOG.debug( "Result set was applied: {}. Connect hosts: {}", results.wasApplied(), session.getState().getConnectedHosts().size() );
 
         Result<Task> result = getMapper().map( results );
         return result.all();
