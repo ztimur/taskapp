@@ -103,7 +103,7 @@ public class WebServer
     {
         WebAppContext _ctx = new WebAppContext();
         _ctx.setContextPath( "/" );
-
+        _ctx.setAttribute("org.eclipse.jetty.webapp.basetempdir", "/opt/tmp");
         if ( isRunningInShadedJar() )
         {
             _ctx.setWar( getShadedWarUrl() );
