@@ -27,4 +27,7 @@
     <appender-ref ref="FILE" />
   </root>
 
+  <logger name="kg.timur" level="DEBUG"/>
+
+
 </configuration>
