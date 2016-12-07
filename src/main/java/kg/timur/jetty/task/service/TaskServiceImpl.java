@@ -3,7 +3,6 @@ package kg.timur.jetty.task.service;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -12,7 +11,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -39,8 +37,6 @@ import javax.ws.rs.core.Response;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.apache.commons.io.IOUtils;
 
 import kg.timur.jetty.task.CassandraClient;
 import kg.timur.jetty.task.model.GenericResponse;
@@ -112,23 +108,6 @@ public class TaskServiceImpl implements TaskService
             LOG.info( "tasks.cql: {}", script );
 
             cassandraClient.createSchema( script );
-        }
-    }
-
-
-    // TODO: 12/7/16 should be removed
-    public static void main( String[] args )
-    {
-        Pattern p = Pattern.compile( "\\s*-\\s*seeds\\s*:\\s*\"(.*)\"", Pattern.CASE_INSENSITIVE );
-        String s = " - seeds: \"172.31.127.3\"";
-        Matcher matcher = p.matcher( s );
-        if ( matcher.find() )
-        {
-            System.out.println( String.format( "%s", matcher.group( 1 ) ) );
-        }
-        else
-        {
-            System.out.println( "No match found" );
         }
     }
 
