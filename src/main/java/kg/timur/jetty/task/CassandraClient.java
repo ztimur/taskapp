@@ -3,7 +3,6 @@ package kg.timur.jetty.task;
 
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
 
@@ -11,13 +10,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.driver.mapping.Mapper;
+import com.datastax.driver.mapping.MappingManager;
+import com.datastax.driver.mapping.Result;
 
 import kg.timur.jetty.task.model.Task;
+
+import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import static kg.timur.jetty.task.model.Task.ID;
+import static kg.timur.jetty.task.model.Task.KEYSPACE;
+import static kg.timur.jetty.task.model.Task.TABLE;
 
 
 public class CassandraClient
@@ -26,6 +35,7 @@ public class CassandraClient
     private Cluster cluster;
 
     private Session session;
+    private MappingManager mappingManager;
 
 
     public void connect( String[] contactPoints, int port )
@@ -39,6 +49,8 @@ public class CassandraClient
         session = cluster.connect();
 
         LOG.info( "Connected to cluster: {}", cluster.getMetadata().getClusterName() );
+
+        mappingManager = new MappingManager( session );
     }
 
 
@@ -67,33 +79,36 @@ public class CassandraClient
 
     public List<Task> getAllTasks()
     {
-
-        List<Task> tasks = new ArrayList<>();
-
         LOG.debug( "Querying data...." );
 
-        ResultSet results = session.execute( "SELECT id, task, status, createdOn FROM taskdemo.tasks" );
+        final Statement statement =
+                QueryBuilder.select().all().from( KEYSPACE, TABLE ).setConsistencyLevel( ConsistencyLevel.ONE );
 
-        LOG.debug( "Fetch result: {}", results );
-        for ( Row row : results )
-        {
-            tasks.add( new Task( row.getString( 0 ), row.getString( 1 ), row.getInt( 2 ), row.getTimestamp( 3 ) ) );
-        }
+        ResultSet results = session.execute( statement );
 
-        return tasks;
+        LOG.debug( "Result set was applied: {}. Session state: {}", results.wasApplied(), session.getState() );
+
+        Result<Task> result = getMapper().map( results );
+        return result.all();
     }
 
 
     public Task getTask( final String id )
     {
-        final ResultSet results =
-                session.execute( "select id, task, status, createdOn from taskdemo.tasks where id = ?;", id );
-        Row row = results.one();
-        if ( row == null )
+        final Statement statement = QueryBuilder.select().from( KEYSPACE, TABLE ).where( eq( ID, id ) ).limit( 1 )
+                                                .setConsistencyLevel( ConsistencyLevel.ONE );
+        final ResultSet results = session.execute( statement );
+
+        final Result<Task> r = getMapper().map( results );
+        List<Task> all = r.all();
+        if ( all.size() > 0 )
+        {
+            return all.get( 0 );
+        }
+        else
         {
             return null;
         }
-        return new Task( row.getString( 0 ), row.getString( 1 ), row.getInt( 2 ), row.getTimestamp( 3 ) );
     }
 
 
@@ -150,5 +165,11 @@ public class CassandraClient
         catch ( Exception ignore )
         {
         }
+    }
+
+
+    private Mapper<Task> getMapper()
+    {
+        return mappingManager.mapper( Task.class );
     }
 }
