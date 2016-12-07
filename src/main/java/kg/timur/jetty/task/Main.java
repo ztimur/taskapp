@@ -5,9 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-/**
- * Created by tzhamakeev on 11/25/16.
- */
 public class Main
 {
     private static Logger LOG = LoggerFactory.getLogger( Main.class );
@@ -15,7 +12,7 @@ public class Main
 
     public static void main( String[] args ) throws Exception
     {
-        WebServer webServer = new WebServer( 8080 );
+        WebServer webServer = new WebServer( 80 );
         try
         {
             webServer.start();

@@ -74,6 +74,7 @@ public class CassandraClient
 
         ResultSet results = session.execute( "SELECT id, task, status, createdOn FROM taskdemo.tasks" );
 
+        LOG.debug( "Fetch result: {}", results );
         for ( Row row : results )
         {
             tasks.add( new Task( row.getString( 0 ), row.getString( 1 ), row.getInt( 2 ), row.getTimestamp( 3 ) ) );

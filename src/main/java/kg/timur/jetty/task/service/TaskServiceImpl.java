@@ -1,6 +1,10 @@
 package kg.timur.jetty.task.service;
 
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -8,6 +12,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -15,6 +20,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javax.ws.rs.Consumes;
@@ -31,6 +38,8 @@ import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.commons.io.IOUtils;
+
 import kg.timur.jetty.task.CassandraClient;
 import kg.timur.jetty.task.model.GenericResponse;
 import kg.timur.jetty.task.model.Task;
@@ -45,7 +54,7 @@ public class TaskServiceImpl implements TaskService
 
     private static int CASS_PORT = 9042;
 
-    private static String[] CASS_CONFIG_POINTS = { "127.0.0.1" };
+    private String[] CASS_CONFIG_POINTS = { "127.0.0.1" };
 
     private CassandraClient cassandraClient;
 
@@ -71,7 +80,7 @@ public class TaskServiceImpl implements TaskService
 
         boolean notConnected = true;
 
-        updateConfigs2();
+        updateConfigs3();
 
         while ( !Thread.interrupted() && notConnected )
         {
@@ -101,6 +110,72 @@ public class TaskServiceImpl implements TaskService
             LOG.info( "tasks.cql: {}", script );
 
             cassandraClient.createSchema( script );
+        }
+    }
+
+
+    private void updateConfigs3() throws SocketException
+    {
+        File cassandraConfigFile = new File( "/etc/cassandra/cassandra.yaml" );
+        // - seeds: "172.31.127.3"
+        Pattern p = Pattern.compile( "\\s+-\\sseeds\\s+:\\s+\"(.*)\"", Pattern.CASE_INSENSITIVE );
+
+        BufferedReader bf = null;
+        String seeds = null;
+        try
+        {
+            bf = new BufferedReader( new FileReader( cassandraConfigFile ) );
+            int linecount = 0;
+            String line;
+            while ( ( line = bf.readLine() ) != null && seeds == null )
+            {
+                linecount++;
+
+                Matcher m = p.matcher( line );
+
+                if ( m.find() )
+                {
+                    seeds = m.group();
+                    LOG.debug( "Seed definition found at position {} on line {}. Seeds: {}", m.start(), linecount,
+                            m.group() );
+                }
+            }
+        }
+        catch ( IOException e )
+        {
+            LOG.error( e.getMessage(), e );
+        }
+        finally
+        {
+            if ( bf != null )
+            {
+                try
+                {
+                    bf.close();
+                }
+                catch ( IOException ignore )
+                {
+                    // ignore
+                }
+            }
+        }
+
+        if ( seeds == null )
+        {
+            LOG.warn(
+                    "Seeds configuration not found in cassandra configuration file. Using localhost for connections." );
+        }
+        else
+        {
+            String[] hostList = seeds.trim().split( "," );
+            List<String> configPoints = new ArrayList();
+            for ( String host : hostList )
+            {
+                LOG.debug( "Adding C* config point {}.", host );
+                configPoints.add( host );
+            }
+            CASS_CONFIG_POINTS = configPoints.toArray( new String[0] );
+            LOG.debug( "CASS_CONFIG_POINTS: {}", configPoints );
         }
     }
 
