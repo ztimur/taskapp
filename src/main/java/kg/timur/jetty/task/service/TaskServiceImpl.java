@@ -16,8 +16,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -114,11 +116,28 @@ public class TaskServiceImpl implements TaskService
     }
 
 
+    // TODO: 12/7/16 should be removed
+    public static void main( String[] args )
+    {
+        Pattern p = Pattern.compile( "\\s*-\\s*seeds\\s*:\\s*\"(.*)\"", Pattern.CASE_INSENSITIVE );
+        String s = " - seeds: \"172.31.127.3\"";
+        Matcher matcher = p.matcher( s );
+        if ( matcher.find() )
+        {
+            System.out.println( String.format( "%s", matcher.group( 1 ) ) );
+        }
+        else
+        {
+            System.out.println( "No match found" );
+        }
+    }
+
+
     private void updateConfigs3() throws SocketException
     {
         File cassandraConfigFile = new File( "/etc/cassandra/cassandra.yaml" );
         // - seeds: "172.31.127.3"
-        Pattern p = Pattern.compile( "\\s+-\\sseeds\\s+:\\s+\"(.*)\"", Pattern.CASE_INSENSITIVE );
+        Pattern p = Pattern.compile( "\\s*-\\s*seeds\\s*:\\s*\"(.*)\"", Pattern.CASE_INSENSITIVE );
 
         BufferedReader bf = null;
         String seeds = null;
@@ -135,7 +154,7 @@ public class TaskServiceImpl implements TaskService
 
                 if ( m.find() )
                 {
-                    seeds = m.group();
+                    seeds = m.group( 1 );
                     LOG.debug( "Seed definition found at position {} on line {}. Seeds: {}", m.start(), linecount,
                             m.group() );
                 }
@@ -160,15 +179,23 @@ public class TaskServiceImpl implements TaskService
             }
         }
 
+        String defaultIp = getEth0Ip();
+        if ( defaultIp == null )
+        {
+            defaultIp = "127.0.0.1";
+        }
+
         if ( seeds == null )
         {
-            LOG.warn(
-                    "Seeds configuration not found in cassandra configuration file. Using localhost for connections." );
+            LOG.warn( "Seeds configuration not found in cassandra configuration file. Using {} for connections.",
+                    defaultIp );
+            CASS_CONFIG_POINTS = new String[] { defaultIp };
         }
         else
         {
             String[] hostList = seeds.trim().split( "," );
-            List<String> configPoints = new ArrayList();
+            Set<String> configPoints = new HashSet<>();
+            configPoints.add( defaultIp );
             for ( String host : hostList )
             {
                 LOG.debug( "Adding C* config point {}.", host );
@@ -177,6 +204,21 @@ public class TaskServiceImpl implements TaskService
             CASS_CONFIG_POINTS = configPoints.toArray( new String[0] );
             LOG.debug( "CASS_CONFIG_POINTS: {}", configPoints );
         }
+    }
+
+
+    private String getEth0Ip() throws SocketException
+    {
+        NetworkInterface networkInterface = NetworkInterface.getByName( "eth0" );
+
+        for ( InetAddress inetAddress : Collections.list( networkInterface.getInetAddresses() ) )
+        {
+            if ( inetAddress instanceof Inet4Address && !inetAddress.isLoopbackAddress() )
+            {
+                return inetAddress.getHostAddress();
+            }
+        }
+        return null;
     }
 
 
