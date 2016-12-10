@@ -36,4 +36,8 @@ public interface TaskService
     @GET
     @Path( "/getAll" )
     Task[] getAllTasks();
+
+    @GET
+    @Path( "/getClusterStatus" )
+    String getClusterStatus();
 }

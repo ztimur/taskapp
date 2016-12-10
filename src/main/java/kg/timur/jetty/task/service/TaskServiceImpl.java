@@ -5,6 +5,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -78,16 +79,10 @@ public class TaskServiceImpl implements TaskService
 
         boolean notConnected = true;
 
-        updateConfigs3();
 
         while ( !Thread.interrupted() && notConnected )
         {
-            //            if ( !updateConfigs() )
-            //            {
-            //                TimeUnit.SECONDS.sleep( 1 );
-            //                continue;
-            //            }
-
+            updateConfigs3();
             try
             {
                 cassandraClient.connect( CASS_CONFIG_POINTS, CASS_PORT );
@@ -115,7 +110,6 @@ public class TaskServiceImpl implements TaskService
     private void updateConfigs3() throws SocketException
     {
         File cassandraConfigFile = new File( "/etc/cassandra/cassandra.yaml" );
-        // - seeds: "172.31.127.3"
         Pattern p = Pattern.compile( "\\s*-\\s*seeds\\s*:\\s*\"(.*)\"", Pattern.CASE_INSENSITIVE );
 
         BufferedReader bf = null;
@@ -337,5 +331,46 @@ public class TaskServiceImpl implements TaskService
     public Task[] getAllTasks()
     {
         return cassandraClient.getAllTasks().toArray( new Task[0] );
+    }
+
+
+    @Override
+    @GET
+    @Path( "/getClusterStatus" )
+    public String getClusterStatus()
+    {
+        final StringBuilder result = new StringBuilder("Cluster status:\n");
+        try
+        {
+            final Process p = Runtime.getRuntime().exec( "nodetool status" );
+
+            new Thread( () ->
+            {
+                BufferedReader input = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
+                String line = null;
+
+                try
+                {
+                    while ( ( line = input.readLine() ) != null )
+                    {
+                        result.append( line +"\n");
+                    }
+                }
+                catch ( IOException e )
+                {
+                    LOG.error( e.getMessage() );
+                    result.append( e.getMessage() );
+                }
+            } ).start();
+
+            p.waitFor();
+        }
+        catch ( IOException | InterruptedException e )
+        {
+            LOG.error( e.getMessage() );
+            result.append( e.getMessage() );
+        }
+
+        return result.toString();
     }
 }

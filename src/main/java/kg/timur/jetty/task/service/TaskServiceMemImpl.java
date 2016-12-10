@@ -1,6 +1,9 @@
 package kg.timur.jetty.task.service;
 
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,19 +20,19 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import kg.timur.jetty.task.model.GenericResponse;
 import kg.timur.jetty.task.model.Task;
 
 
-/**
- * Created by tzhamakeev on 11/25/16.
- */
 @Path( "/rest/tasksMem" )
 @Consumes( MediaType.APPLICATION_JSON )
 @Produces( MediaType.APPLICATION_JSON )
 public class TaskServiceMemImpl implements TaskService
 {
-
+    private static Logger LOG = LoggerFactory.getLogger( TaskServiceMemImpl.class );
     private static Map<String, Task> tasks = new HashMap<>();
 
 
@@ -125,5 +128,46 @@ public class TaskServiceMemImpl implements TaskService
             i++;
         }
         return e;
+    }
+
+
+    @Override
+    @GET
+    @Path( "/getClusterStatus" )
+    public String getClusterStatus()
+    {
+        final StringBuilder result = new StringBuilder( "Cluster status: " );
+        try
+        {
+            final Process p = Runtime.getRuntime().exec( "nodetool status" );
+
+            new Thread( () ->
+            {
+                BufferedReader input = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
+                String line = null;
+
+                try
+                {
+                    while ( ( line = input.readLine() ) != null )
+                    {
+                        result.append( line );
+                    }
+                }
+                catch ( IOException e )
+                {
+                    LOG.error( e.getMessage() );
+                    result.append( e.getMessage() );
+                }
+            } ).start();
+
+            p.waitFor();
+        }
+        catch ( IOException | InterruptedException e )
+        {
+            LOG.error( e.getMessage() );
+            result.append( e.getMessage() );
+        }
+
+        return result.toString();
     }
 }
