@@ -1,5 +1,5 @@
 //Define an angular module for our app
-var app = angular.module('myApp', ['ngSanitize']);
+var app = angular.module('myApp', []);
 function guid() {
     function s4() {
         return Math.floor((1 + Math.random()) * 0x10000)
@@ -56,13 +56,12 @@ app.controller('tasksController', function ($scope, $http) {
 
 });
 
-app.controller('statusController', function ($scope, $http, $sanitize) {
+app.controller('statusController', function ($scope, $http) {
     getClusterStatus();
     function getClusterStatus() {
         $http.get("rest/tasks/getClusterStatus").success(function (data) {
             console.log(JSON.stringify(data));
-            $scope.rawHtml = "<pre><code>"+data+"</code></pre>";
-            $scope.clusterStatus = $sanitize( $scope.rawHtml );
+            $scope.rawHtml = "<pre><code>" + data + "</code></pre>";
         });
     };
 });
